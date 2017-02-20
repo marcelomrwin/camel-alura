@@ -17,14 +17,20 @@ public class RotaPedidos {
 
 			@Override
 			public void configure() throws Exception {
-				from("file:pedidos?delay=5s&noop=true").setProperty("pedidoId", xpath("/pedido/id/text()"))
-						.setProperty("clienteId", xpath("/pedido/pagamento/email-titular/text()")).split()
-						.xpath("/pedido/itens/item").filter().xpath("/item/formato[text()='EBOOK']")
-						.setProperty("ebookId", xpath("/item/livro/codigo/text()")).marshal().xmljson()
-						.log("${id} \n ${body}").setHeader(Exchange.HTTP_METHOD, constant(HttpMethods.GET))
-						.setHeader(Exchange.HTTP_QUERY,
-								simple("clienteId=${exchangeProperty.clienteId}&pedidoId=${exchangeProperty.pedidoId}&ebookId=${exchangeProperty.ebookId}"))
-						.to("http4://localhost:8080/webservices/ebook/item");
+				from("file:pedidos?delay=5s&noop=true").multicast().to("direct:soap").to("direct:http");
+				
+				from("direct:http").routeId("rota-http")
+						.setProperty("pedidoId", xpath("/pedido/id/text()"))
+						.setProperty("clienteId", xpath("/pedido/pagamento/email-titular/text()"))
+						.split().xpath("/pedido/itens/item")
+						.filter().xpath("/item/formato[text()='EBOOK']")
+						.setProperty("ebookId", xpath("/item/livro/codigo/text()"))
+						.marshal().xmljson()						
+						.setHeader(Exchange.HTTP_METHOD, constant(HttpMethods.GET))
+						.setHeader(Exchange.HTTP_QUERY,	simple("clienteId=${exchangeProperty.clienteId}&pedidoId=${exchangeProperty.pedidoId}&ebookId=${exchangeProperty.ebookId}"))
+				.to("http4://localhost:8080/webservices/ebook/item");
+				
+				from("direct:soap").routeId("rota-soap").log("chamando serviço soap ${body}").to("mock:soap");
 
 			}
 
