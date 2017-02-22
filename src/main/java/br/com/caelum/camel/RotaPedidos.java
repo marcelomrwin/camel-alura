@@ -2,6 +2,7 @@ package br.com.caelum.camel;
 
 import java.util.concurrent.TimeUnit;
 
+import org.apache.activemq.camel.component.ActiveMQComponent;
 import org.apache.camel.CamelContext;
 import org.apache.camel.Exchange;
 import org.apache.camel.Processor;
@@ -15,6 +16,8 @@ public class RotaPedidos {
 	public static void main(String[] args) throws Exception {
 
 		CamelContext context = new DefaultCamelContext();
+		context.addComponent("activemq", ActiveMQComponent.activeMQComponent("tcp://localhost:61616"));
+		
 		context.addRoutes(new RouteBuilder() {
 
 			@Override
@@ -39,7 +42,7 @@ public class RotaPedidos {
 //					}
 //				});
 
-				from("file:pedidos?delay=5s&noop=true").routeId("rota-pedidos").to("validator:pedido.xsd").multicast().to("direct:soap")
+				from("activemq:queue:pedidos").routeId("rota-pedidos").to("validator:pedido.xsd").multicast().to("direct:soap")
 						.to("direct:http");
 
 				from("direct:http").routeId("rota-http").setProperty("pedidoId", xpath("/pedido/id/text()"))
